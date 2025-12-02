@@ -4,36 +4,46 @@ import { Dashboard } from "./components/Dashboard";
 import { FundThesisOnboarding } from "./components/FundThesisOnboarding";
 import { LoginPage } from "./components/LoginPage";
 import { AnimatePresence, motion } from "framer-motion";
+import { AuthProvider, useAuth } from "./lib/AuthContext";
+import { DiscoveryProvider } from "./lib/DiscoveryContext";
 
 /**
- * App wiring kept intact but wrapped so animated transitions between
- * top-level states are smoother.
+ * Main application content with navigation logic
  */
-export default function App() {
+function AppContent() {
+  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
   const [showDashboard, setShowDashboard] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const authStatus = localStorage.getItem("isAuthenticated");
-    const onboardingComplete = localStorage.getItem("onboardingComplete");
-    const fundThesis = localStorage.getItem("fundThesis");
+    if (authLoading) return;
 
-    if (authStatus === "true") {
-      setIsAuthenticated(true);
-      if (!onboardingComplete || !fundThesis) {
+    const onboardingComplete = localStorage.getItem("onboardingComplete");
+
+    if (isAuthenticated) {
+      // Check if user has completed onboarding
+      // Backend returns 'thesis' field, also check localStorage for fundThesis
+      const hasThesis = user?.thesis || user?.onboarding_complete || localStorage.getItem("fundThesis");
+      if (!onboardingComplete || !hasThesis) {
         setShowOnboarding(true);
+        setShowLogin(false);
+        setShowDashboard(false);
+      } else {
+        setShowDashboard(true);
+        setShowLogin(false);
+        setShowOnboarding(false);
       }
     } else {
       setShowLogin(true);
+      setShowDashboard(false);
+      setShowOnboarding(false);
     }
-    setIsLoading(false);
-  }, []);
+    setIsInitialized(true);
+  }, [isAuthenticated, authLoading, user]);
 
-  const handleLogin = (userData) => {
-    setIsAuthenticated(true);
+  const handleLogin = () => {
     setShowLogin(false);
     const onboardingComplete = localStorage.getItem("onboardingComplete");
     if (!onboardingComplete) {
@@ -66,17 +76,19 @@ export default function App() {
     setShowOnboarding(true);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    localStorage.removeItem("userData");
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    await logout();
     setShowDashboard(false);
     setShowOnboarding(false);
     setShowLogin(true);
   };
 
-  if (isLoading) {
-    return null;
+  if (authLoading || !isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="animate-pulse text-white">Loading...</div>
+      </div>
+    );
   }
 
   return (
@@ -129,5 +141,18 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/**
+ * App wrapper with AuthProvider and DiscoveryProvider
+ */
+export default function App() {
+  return (
+    <AuthProvider>
+      <DiscoveryProvider>
+        <AppContent />
+      </DiscoveryProvider>
+    </AuthProvider>
   );
 }

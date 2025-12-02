@@ -64,7 +64,7 @@ export function Dashboard({ onBack, onReconfigure, onLogout }) {
   const renderTab = () => {
     switch (activeTab) {
       case 'overview':
-        return <OverviewDashboard />;
+        return <OverviewDashboard onNavigate={setActiveTab} />;
       case 'discovery':
         return <DiscoveryFeed />;
       case 'tracker':

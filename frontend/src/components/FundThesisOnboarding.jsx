@@ -5,7 +5,8 @@ import { Progress } from './ui/progress';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
-import { Target, TrendingUp, Globe, DollarSign, Users, Sparkles, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Target, TrendingUp, Globe, DollarSign, Users, Sparkles, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
 
 /*
   FundThesisOnboarding
@@ -24,7 +25,9 @@ const STEPS = [
 ];
 
 export function FundThesisOnboarding({ onComplete }) {
+  const { updateThesis } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
   const [thesis, setThesis] = useState({
     investmentStage: [],
     checkSize: '',
@@ -38,14 +41,33 @@ export function FundThesisOnboarding({ onComplete }) {
 
   const progress = Math.round((currentStep / STEPS.length) * 100);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < STEPS.length) {
       setCurrentStep(currentStep + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      localStorage.setItem('fundThesis', JSON.stringify(thesis));
-      localStorage.setItem('onboardingComplete', 'true');
-      if (onComplete) onComplete(thesis);
+      setIsSaving(true);
+      try {
+        console.log('Saving thesis to backend...');
+        // Save to backend via AuthContext
+        await updateThesis(thesis);
+        localStorage.setItem('fundThesis', JSON.stringify(thesis));
+        localStorage.setItem('onboardingComplete', 'true');
+        if (onComplete) onComplete(thesis);
+      } catch (err) {
+        console.warn('Failed to save thesis to backend, using local storage:', err);
+        // Log more details for debugging
+        console.warn('Error message:', err.message);
+        console.warn('Is authenticated:', !!localStorage.getItem('accessToken'));
+        console.warn('Token value:', localStorage.getItem('accessToken')?.substring(0, 20) + '...');
+        
+        // Fallback to local storage - this is acceptable for the demo
+        localStorage.setItem('fundThesis', JSON.stringify(thesis));
+        localStorage.setItem('onboardingComplete', 'true');
+        if (onComplete) onComplete(thesis);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -474,11 +496,20 @@ export function FundThesisOnboarding({ onComplete }) {
 
           <Button
             onClick={handleNext}
-            disabled={!isStepValid()}
+            disabled={!isStepValid() || isSaving}
             className="flex items-center gap-2"
           >
-            {currentStep === STEPS.length ? 'Complete' : 'Next'}
-            <ArrowRight className="w-4 h-4" />
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                {currentStep === STEPS.length ? 'Complete' : 'Next'}
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </Button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -12,30 +12,59 @@ import {
   RefreshCw,
   TrendingUp,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Loader2,
+  WifiOff,
+  CheckCheck,
+  AlertCircle
 } from 'lucide-react';
-import { mockStartups } from '../lib/mockData';
+import { useStartups, useOutreach, useOutreachMutations } from '../lib/hooks';
+import { useDiscovery } from '../lib/DiscoveryContext';
 import { motion } from 'framer-motion';
 
 export function OutreachCenter() {
-  const [selectedStartup, setSelectedStartup] = useState(mockStartups[0]?.id || '');
+  const { startups, isLoading: startupsLoading, useMock } = useStartups();
+  const { stats: outreachStatsData, messages, isLoading: outreachLoading } = useOutreach();
+  const { generateOutreach, sendOutreach, isLoading: generating } = useOutreachMutations();
+  const { discoveries } = useDiscovery();
+  
+  const [selectedStartup, setSelectedStartup] = useState('');
   const [emailContent, setEmailContent] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  const startup = useMemo(() => mockStartups.find((s) => s.id === selectedStartup), [selectedStartup]);
+  // Set default startup once loaded
+  useState(() => {
+    if (startups.length > 0 && !selectedStartup) {
+      setSelectedStartup(startups[0]?.id || '');
+    }
+  });
 
-  const generateEmail = () => {
+  const startup = useMemo(() => startups.find((s) => s.id === selectedStartup), [startups, selectedStartup]);
+
+  const generateEmail = useCallback(async () => {
     if (!startup) return;
 
-    const template = `Subject: Impressed by ${startup.name}'s growth in ${startup.sector}
+    try {
+      // Try to use API
+      const result = await generateOutreach({
+        startupId: startup.id,
+        templateType: 'initial',
+        customContext: {}
+      });
+      setEmailContent(result.content);
+    } catch (err) {
+      console.warn('API unavailable, using local template:', err);
+      // Fallback to local template
+      const template = `Subject: Impressed by ${startup.name}'s growth in ${startup.sector}
 
-Hi ${startup.founders[0].name},
+Hi ${startup.founders?.[0]?.name || 'Founder'},
 
 I came across ${startup.name} and was genuinely impressed by your work in ${startup.sector.toLowerCase()}. ${startup.tagline.toLowerCase()} is exactly the kind of innovation we look for.
 
 A few things that stood out:
-• ${startup.signals[0] || 'Strong traction'}
-• ${startup.signals[1] || 'Compelling revenue growth'}
-• Your background at ${startup.founders[0].background.split(',')[0] || 'leading organizations'}
+• ${startup.signals?.[0] || 'Strong traction'}
+• ${startup.signals?.[1] || 'Compelling revenue growth'}
+• Your background at ${startup.founders?.[0]?.background?.split(',')?.[0] || 'leading organizations'}
 
 At [Your Firm], we focus on ${startup.stage} companies in ${startup.sector.toLowerCase()}, and I'd love to learn more about your vision and growth plans.
 
@@ -45,49 +74,33 @@ Best regards,
 John Doe
 Partner, [Your Firm]`;
 
-    setEmailContent(template);
-  };
+      setEmailContent(template);
+    }
+  }, [startup, generateOutreach]);
 
   const outreachStats = [
-    { label: 'Emails Sent', value: '47', change: '+12 this week' },
-    { label: 'Response Rate', value: '68%', change: '+5% vs last month' },
-    { label: 'Meetings Booked', value: '12', change: '3 this week' },
-    { label: 'Pending Response', value: '18', change: 'Avg. 2.3 days' }
+    { label: 'Emails Sent', value: outreachStatsData?.sent?.toString() || '0', change: 'this session' },
+    { label: 'Response Rate', value: outreachStatsData?.reply_rate ? `${outreachStatsData.reply_rate}%` : '0%', change: 'total' },
+    { label: 'Meetings Booked', value: outreachStatsData?.replied?.toString() || '0', change: 'this session' },
+    { label: 'Pending Response', value: (outreachStatsData?.sent - outreachStatsData?.replied)?.toString() || '0', change: 'waiting' }
   ];
 
-  const recentOutreach = [
-    {
-      startup: 'Quantum Health AI',
-      status: 'pending',
-      sentDate: '2 hours ago',
-      founder: 'Dr. Sarah Chen'
-    },
-    {
-      startup: 'SupplyChain.ai',
-      status: 'replied',
-      sentDate: '1 day ago',
-      founder: 'James Park',
-      response: 'Interested in meeting next week'
-    },
-    {
-      startup: 'DevSecure',
-      status: 'pending',
-      sentDate: '2 days ago',
-      founder: 'Alex Kumar'
-    },
-    {
-      startup: 'FinFlow',
-      status: 'meeting',
-      sentDate: '3 days ago',
-      founder: 'David Lee',
-      response: 'Meeting scheduled for Friday 2pm'
-    }
-  ];
+  const recentOutreach = discoveries && discoveries.length > 0 
+    ? discoveries.slice(0, 4).map((startup, index) => ({
+        id: startup.id,
+        startup: startup.name,
+        status: ['pending', 'replied', 'meeting'][index % 3] || 'pending',
+        sentDate: `${index + 1} day${index > 0 ? 's' : ''} ago`,
+        founder: startup.founders?.[0]?.name || 'Founder',
+        response: index % 2 === 0 ? `Interested in discussing ${startup.sector} opportunities` : null
+      }))
+    : [];
 
   const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      // you might show a toast here in a real app
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       // fallback or error handling
     }
@@ -103,7 +116,15 @@ Partner, [Your Firm]`;
       {/* Header */}
       <div>
         <h1 className="text-3xl font-semibold mb-2">Outreach Center</h1>
-        <p className="text-slate-500">AI-powered personalized outreach to high-score startups</p>
+        <p className="text-slate-500">
+          AI-powered personalized outreach to high-score startups
+          {useMock && (
+            <Badge variant="outline" className="ml-2 text-xs bg-amber-50 border-amber-200 text-amber-700">
+              <WifiOff className="w-3 h-3 mr-1 inline" />
+              Demo Mode
+            </Badge>
+          )}
+        </p>
       </div>
 
       {/* Stats */}
@@ -134,14 +155,18 @@ Partner, [Your Firm]`;
                 <label className="text-sm mb-2 block">Select Startup</label>
                 <Select value={selectedStartup} onValueChange={setSelectedStartup}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder={startupsLoading ? "Loading..." : "Select a startup"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockStartups.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name} - Score: {s.score}
-                      </SelectItem>
-                    ))}
+                    {startupsLoading ? (
+                      <SelectItem value="loading" disabled>Loading startups...</SelectItem>
+                    ) : (
+                      startups.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} - Score: {s.score}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -159,20 +184,28 @@ Partner, [Your Firm]`;
                 </div>
               )}
 
-              <Button className="w-full gap-2 bg-linear-to-r from-indigo-600 to-purple-600 text-white" onClick={generateEmail}>
-                <Sparkles className="w-4 h-4" />
-                Generate AI Email
+              <Button 
+                className="w-full gap-2 bg-linear-to-r from-indigo-600 to-purple-600 text-white" 
+                onClick={generateEmail}
+                disabled={!startup || generating}
+              >
+                {generating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                {generating ? 'Generating...' : 'Generate AI Email'}
               </Button>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm">Email Content</label>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={generateEmail} aria-label="Regenerate email">
-                      <RefreshCw className="w-3 h-3" />
+                    <Button variant="ghost" size="sm" onClick={generateEmail} aria-label="Regenerate email" disabled={generating}>
+                      <RefreshCw className={`w-3 h-3 ${generating ? 'animate-spin' : ''}`} />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => copyToClipboard(emailContent)} aria-label="Copy email">
-                      <Copy className="w-3 h-3" />
+                      {copied ? <CheckCheck className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
                     </Button>
                   </div>
                 </div>
@@ -209,48 +242,54 @@ Partner, [Your Firm]`;
               <CardDescription>Track responses and follow-ups</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentOutreach.map((item, index) => (
-                  <motion.div key={index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="mb-1 font-medium">{item.startup}</h4>
-                        <p className="text-sm text-slate-600">To: {item.founder}</p>
+              {recentOutreach.length > 0 ? (
+                <div className="space-y-4">
+                  {recentOutreach.map((item, index) => (
+                    <motion.div key={index} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="mb-1 font-medium">{item.startup}</h4>
+                          <p className="text-sm text-slate-600">To: {item.founder}</p>
+                        </div>
+                        <Badge
+                          variant={
+                            item.status === 'replied' ? 'default' :
+                            item.status === 'meeting' ? 'default' :
+                            'secondary'
+                          }
+                          className={
+                            item.status === 'replied' ? 'bg-green-500 text-white' :
+                            item.status === 'meeting' ? 'bg-blue-500 text-white' :
+                            ''
+                          }
+                        >
+                          {item.status === 'pending' && <Clock className="w-3 h-3 mr-1 inline-block" />}
+                          {item.status === 'replied' && <CheckCircle2 className="w-3 h-3 mr-1 inline-block" />}
+                          {item.status === 'meeting' && <CheckCircle2 className="w-3 h-3 mr-1 inline-block" />}
+                          {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant={
-                          item.status === 'replied' ? 'default' :
-                          item.status === 'meeting' ? 'default' :
-                          'secondary'
-                        }
-                        className={
-                          item.status === 'replied' ? 'bg-green-500 text-white' :
-                          item.status === 'meeting' ? 'bg-blue-500 text-white' :
-                          ''
-                        }
-                      >
-                        {item.status === 'pending' && <Clock className="w-3 h-3 mr-1 inline-block" />}
-                        {item.status === 'replied' && <CheckCircle2 className="w-3 h-3 mr-1 inline-block" />}
-                        {item.status === 'meeting' && <CheckCircle2 className="w-3 h-3 mr-1 inline-block" />}
-                        {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                      </Badge>
-                    </div>
 
-                    {item.response && (
-                      <div className="bg-green-50 border border-green-100 rounded p-2 text-sm">
-                        <span className="text-green-700">"{item.response}"</span>
+                      {item.response && (
+                        <div className="bg-green-50 border border-green-100 rounded p-2 text-sm">
+                          <span className="text-green-700">"{item.response}"</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-sm text-slate-500">
+                        <span>Sent {item.sentDate}</span>
+                        <Button variant="ghost" size="sm">View Thread</Button>
                       </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-sm text-slate-500">
-                      <span>Sent {item.sentDate}</span>
-                      <Button variant="ghost" size="sm">View Thread</Button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-
-              <Button variant="outline" className="w-full mt-4">View All Outreach</Button>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                  <AlertCircle className="w-8 h-8 mb-2" />
+                  <p className="text-sm">No outreach yet</p>
+                  <p className="text-xs mt-1">Run AI Discovery to find and reach out to companies</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>

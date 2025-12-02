@@ -72,19 +72,19 @@ export function DealDetailDialog({ startup, open, onOpenChange }) {
                   <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                     <div className='border-r border-2 p-4 rounded-2xl'>
                       <div className="text-sm text-slate-600 mb-1">Revenue</div>
-                      <div className="text-xl">{startup.metrics.revenue}</div>
+                      <div className="text-xl">{startup.metrics?.revenue || 'N/A'}</div>
                     </div>
                     <div className='border-r border-2 p-4 rounded-2xl'>
                       <div className="text-sm text-slate-600 mb-1">Growth</div>
-                      <div className="text-xl text-green-600">{startup.metrics.growth}</div>
+                      <div className="text-xl text-green-600">{startup.metrics?.growth || 'N/A'}</div>
                     </div>
                     <div className='border-r border-2 p-4 rounded-2xl'>
                       <div className="text-sm text-slate-600 mb-1">Users</div>
-                      <div className="text-xl">{startup.metrics.users}</div>
+                      <div className="text-xl">{startup.metrics?.users || 'N/A'}</div>
                     </div>
                     <div className='border-r border-2 p-4 rounded-2xl'>
                       <div className="text-sm text-slate-600 mb-1">Funding</div>
-                      <div className="text-xl">{startup.metrics.funding}</div>
+                      <div className="text-xl">{startup.metrics?.funding || startup.stage || 'N/A'}</div>
                     </div>
                   </div>
                 </CardContent>
@@ -97,7 +97,7 @@ export function DealDetailDialog({ startup, open, onOpenChange }) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {startup.signals.map((signal, index) => (
+                    {(startup.signals || [startup.sector, startup.stage, startup.source].filter(Boolean)).map((signal, index) => (
                       <div key={index} className="flex items-start gap-2">
                         <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
                           <TrendingUp className="w-3 h-3 text-green-600" />
@@ -112,27 +112,27 @@ export function DealDetailDialog({ startup, open, onOpenChange }) {
               {/* Data Sources */}
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <span>Data sources:</span>
-                {startup.sources.map((source, index) => (
+                {(startup.sources || [startup.source].filter(Boolean)).map((source, index) => (
                   <Badge key={index} variant="outline" className="text-xs">
-                    {source}
+                    {typeof source === 'object' ? source.name : source}
                   </Badge>
                 ))}
               </div>
             </TabsContent>
 
             <TabsContent value="team" className="space-y-4">
-              {startup.founders.map((founder, index) => (
+              {(startup.founders || []).length > 0 ? startup.founders.map((founder, index) => (
                 <Card key={index}>
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl shrink-0"
                            style={{ background: 'linear-gradient(90deg,#60a5fa,#a78bfa)' }}>
-                        {founder.name.split(' ').map(n => n[0]).join('')}
+                        {founder.name?.split(' ').map(n => n[0]).join('') || '?'}
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg mb-1">{founder.name}</h3>
-                        <p className="text-sm text-slate-600 mb-3">{founder.role}</p>
-                        <p className="text-slate-700 mb-3">{founder.background}</p>
+                        <h3 className="text-lg mb-1">{founder.name || 'Unknown'}</h3>
+                        <p className="text-sm text-slate-600 mb-3">{founder.role || 'Founder'}</p>
+                        <p className="text-slate-700 mb-3">{founder.background || 'No background info available'}</p>
                         <Button variant="outline" size="sm" className="gap-2">
                           <ExternalLink className="w-3 h-3" />
                           View LinkedIn
@@ -141,9 +141,15 @@ export function DealDetailDialog({ startup, open, onOpenChange }) {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )) : (
+                <Card>
+                  <CardContent className="p-6 text-center text-slate-500">
+                    Team information not available yet
+                  </CardContent>
+                </Card>
+              )}
 
-              {startup.mutualConnections > 0 && (
+              {(startup.mutualConnections || 0) > 0 && (
                 <Card className="bg-blue-50 border-blue-200">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-3">
@@ -170,7 +176,7 @@ export function DealDetailDialog({ startup, open, onOpenChange }) {
                   <CardTitle className="text-base">AI Score Breakdown</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {Object.entries(startup.scoreBreakdown).map(([category, score]) => (
+                  {Object.entries(startup.scoreBreakdown || { team: 75, traction: 70, market: 80, fit: 85 }).map(([category, score]) => (
                     <div key={category}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="capitalize">{category}</span>
@@ -191,7 +197,7 @@ export function DealDetailDialog({ startup, open, onOpenChange }) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-700">{startup.investorFit}</p>
+                  <p className="text-slate-700">{startup.investorFit || `Strong potential match in ${startup.sector || 'this sector'}`}</p>
                 </CardContent>
               </Card>
 

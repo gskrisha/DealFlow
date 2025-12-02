@@ -10,16 +10,20 @@ import {
   Sparkles,
   FileText,
   Activity,
-  Target
+  Target,
+  AlertCircle
 } from 'lucide-react';
-import { mockStartups } from '../lib/mockData';
+import { useDiscovery } from '../lib/DiscoveryContext';
 import { motion } from 'framer-motion';
 
 export function Intelligence() {
-  // sort unicorn candidates descending
-  const topUnicornCandidates = mockStartups
+  const { discoveries } = useDiscovery();
+  
+  // Get discovered startups with unicorn probability
+  const topUnicornCandidates = (discoveries || [])
     .filter((s) => s.unicornProbability)
-    .sort((a, b) => (b.unicornProbability || 0) - (a.unicornProbability || 0));
+    .sort((a, b) => (b.unicornProbability || 0) - (a.unicornProbability || 0))
+    .slice(0, 5);
 
   const fadeUp = {
     hidden: { opacity: 0, y: 8 },
@@ -107,33 +111,31 @@ export function Intelligence() {
               <CardDescription>Mutual connections and portfolio synergies</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mockStartups.slice(0, 5).map((startup) => (
-                  <motion.div key={startup.id} variants={fadeUp} className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg">
-                    <div className="w-12 h-12 bg-linear-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white shrink-0">
-                      {startup.name.substring(0, 2)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium truncate mb-1">{startup.name}</h4>
-                      <div className="flex items-center gap-2 text-xs text-slate-600">
-                        <Users className="w-3 h-3" />
-                        <span>{startup.mutualConnections} mutual connections</span>
+              {discoveries && discoveries.length > 0 ? (
+                <div className="space-y-4">
+                  {discoveries.slice(0, 5).map((startup) => (
+                    <motion.div key={startup.id} variants={fadeUp} className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg">
+                      <div className="w-12 h-12 bg-linear-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white shrink-0">
+                        {startup.name.substring(0, 2)}
                       </div>
-                    </div>
-                    <Button variant="ghost" size="sm">View Graph</Button>
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <Sparkles className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                  <div className="text-sm text-blue-900">
-                    <p className="font-medium mb-2">Portfolio Synergy Detected:</p>
-                    <p>Quantum Health AI has connections to 3 of your portfolio companies. Strong potential for strategic partnerships.</p>
-                  </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium truncate mb-1">{startup.name}</h4>
+                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                          <Users className="w-3 h-3" />
+                          <span>{startup.mutualConnections || 0} mutual connections</span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm">View Graph</Button>
+                    </motion.div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                  <AlertCircle className="w-8 h-8 mb-2" />
+                  <p className="text-sm">No discovered companies yet</p>
+                  <p className="text-xs mt-1">Run AI Discovery to find matching deals</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -149,64 +151,36 @@ export function Intelligence() {
               <CardDescription>Real-time tracking of growth indicators</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  {
-                    startup: 'Quantum Health AI',
-                    signal: 'Team expansion',
-                    detail: '5 senior hires from Google Health in past month',
-                    trend: 'up',
-                    importance: 'high'
-                  },
-                  {
-                    startup: 'SupplyChain.ai',
-                    signal: 'Customer momentum',
-                    detail: '3 Fortune 500 customers signed this quarter',
-                    trend: 'up',
-                    importance: 'high'
-                  },
-                  {
-                    startup: 'DevSecure',
-                    signal: 'Community growth',
-                    detail: 'GitHub stars increased 200% in 30 days',
-                    trend: 'up',
-                    importance: 'medium'
-                  },
-                  {
-                    startup: 'ClimateCarbon',
-                    signal: 'Regulatory approval',
-                    detail: 'EU carbon credit certification received',
-                    trend: 'up',
-                    importance: 'high'
-                  },
-                  {
-                    startup: 'FinFlow',
-                    signal: 'Partnership',
-                    detail: 'Stripe partnership announced',
-                    trend: 'up',
-                    importance: 'medium'
-                  }
-                ].map((item, index) => (
-                  <motion.div key={index} variants={fadeUp} className="p-3 border rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                        item.importance === 'high' ? 'bg-red-100' : 'bg-yellow-100'
-                      }`}>
-                        <TrendingUp className={`w-4 h-4 ${item.importance === 'high' ? 'text-red-600' : 'text-yellow-600'}`} />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-sm font-medium">{item.startup}</h4>
-                          <Badge variant={item.importance === 'high' ? 'default' : 'secondary'} className="text-xs">
-                            {item.signal}
-                          </Badge>
+              {discoveries && discoveries.length > 0 ? (
+                <div className="space-y-4">
+                  {discoveries.slice(0, 5).map((startup, index) => (
+                    <motion.div key={index} variants={fadeUp} className="p-3 border rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          startup.score >= 90 ? 'bg-red-100' : 'bg-yellow-100'
+                        }`}>
+                          <TrendingUp className={`w-4 h-4 ${startup.score >= 90 ? 'text-red-600' : 'text-yellow-600'}`} />
                         </div>
-                        <p className="text-xs text-slate-600">{item.detail}</p>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-sm font-medium">{startup.name}</h4>
+                            <Badge variant={startup.score >= 90 ? 'default' : 'secondary'} className="text-xs">
+                              {startup.sector}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600">{startup.tagline || 'Strong match for your thesis'}</p>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                  <AlertCircle className="w-8 h-8 mb-2" />
+                  <p className="text-sm">No signals yet</p>
+                  <p className="text-xs mt-1">Run AI Discovery to see momentum signals</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -223,34 +197,38 @@ export function Intelligence() {
             <CardDescription>1-pager summaries for quick review</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              {mockStartups.slice(0, 4).map((startup) => (
-                <motion.div key={startup.id} variants={fadeUp} className="border rounded-lg p-4 space-y-3 bg-white/60 backdrop-blur">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="mb-1 font-medium">{startup.name}</h4>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">{startup.sector}</Badge>
-                        <Badge className="text-xs bg-linear-to-r from-blue-600 to-purple-600 text-white">{startup.score}</Badge>
+            {discoveries && discoveries.length > 0 ? (
+              <div className="grid md:grid-cols-2 gap-4">
+                {discoveries.slice(0, 4).map((startup) => (
+                  <motion.div key={startup.id} variants={fadeUp} className="border rounded-lg p-4 space-y-3 bg-white/60 backdrop-blur">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="mb-1 font-medium">{startup.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{startup.sector}</Badge>
+                          <Badge className="text-xs bg-linear-to-r from-blue-600 to-purple-600 text-white">{startup.score || 'N/A'}</Badge>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <p className="text-sm text-slate-700 line-clamp-3">{startup.description}</p>
+                    <p className="text-sm text-slate-700 line-clamp-3">{startup.description || startup.tagline}</p>
 
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <FileText className="w-3 h-3 mr-2" />
-                      View 1-Pager
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Sparkles className="w-3 h-3 mr-2" />
-                      Regenerate
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1">
+                        <FileText className="w-3 h-3 mr-2" />
+                        View Details
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                <AlertCircle className="w-8 h-8 mb-2" />
+                <p className="text-sm">No discovered companies yet</p>
+                <p className="text-xs mt-1">Run AI Discovery to generate summaries</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>

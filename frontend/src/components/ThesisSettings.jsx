@@ -35,6 +35,19 @@ export function ThesisSettings({ open, onOpenChange, onReconfigure }) {
     return null;
   }
 
+  // Provide defaults for missing properties
+  const thesisWithDefaults = {
+    investmentStage: [],
+    checkSize: '',
+    geography: [],
+    sectors: [],
+    keyMetrics: [],
+    dealBreakers: [],
+    fundSize: '',
+    portfolioSize: '',
+    ...thesis,
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh]">
@@ -54,11 +67,15 @@ export function ThesisSettings({ open, onOpenChange, onReconfigure }) {
                 <h3 className="text-sm">Investment Stages</h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                {thesis.investmentStage.map((stage) => (
-                  <Badge key={stage} variant="secondary" className="bg-blue-100 text-blue-700">
-                    {stage}
-                  </Badge>
-                ))}
+                {thesisWithDefaults.investmentStage?.length > 0 ? (
+                  thesisWithDefaults.investmentStage.map((stage) => (
+                    <Badge key={stage} variant="secondary" className="bg-blue-100 text-blue-700">
+                      {stage}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No stages selected</span>
+                )}
               </div>
             </div>
 
@@ -74,19 +91,19 @@ export function ThesisSettings({ open, onOpenChange, onReconfigure }) {
                 <Card className="p-3 bg-green-50 border-green-200">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Typical Check Size</span>
-                    <span className="text-sm">{thesis.checkSize}</span>
+                    <span className="text-sm">{thesisWithDefaults.checkSize || 'Not specified'}</span>
                   </div>
                 </Card>
                 <Card className="p-3 bg-green-50 border-green-200">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Total Fund Size</span>
-                    <span className="text-sm">{thesis.fundSize}</span>
+                    <span className="text-sm">{thesisWithDefaults.fundSize || 'Not specified'}</span>
                   </div>
                 </Card>
                 <Card className="p-3 bg-green-50 border-green-200">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Target Portfolio Size</span>
-                    <span className="text-sm">{thesis.portfolioSize}</span>
+                    <span className="text-sm">{thesisWithDefaults.portfolioSize || 'Not specified'}</span>
                   </div>
                 </Card>
               </div>
@@ -101,11 +118,15 @@ export function ThesisSettings({ open, onOpenChange, onReconfigure }) {
                 <h3 className="text-sm">Geographies</h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                {thesis.geography.map((geo) => (
-                  <Badge key={geo} variant="secondary" className="bg-purple-100 text-purple-700">
-                    {geo}
-                  </Badge>
-                ))}
+                {thesisWithDefaults.geography?.length > 0 ? (
+                  thesisWithDefaults.geography.map((geo) => (
+                    <Badge key={geo} variant="secondary" className="bg-purple-100 text-purple-700">
+                      {geo}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No geographies selected</span>
+                )}
               </div>
             </div>
 
@@ -118,11 +139,15 @@ export function ThesisSettings({ open, onOpenChange, onReconfigure }) {
                 <h3 className="text-sm">Sector Focus</h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                {thesis.sectors.map((sector) => (
-                  <Badge key={sector} variant="secondary" className="bg-orange-100 text-orange-700">
-                    {sector}
-                  </Badge>
-                ))}
+                {thesisWithDefaults.sectors?.length > 0 ? (
+                  thesisWithDefaults.sectors.map((sector) => (
+                    <Badge key={sector} variant="secondary" className="bg-orange-100 text-orange-700">
+                      {sector}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No sectors selected</span>
+                )}
               </div>
             </div>
 
@@ -135,11 +160,15 @@ export function ThesisSettings({ open, onOpenChange, onReconfigure }) {
                 <h3 className="text-sm">Key Metrics</h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                {thesis.keyMetrics.map((metric) => (
-                  <Badge key={metric} variant="secondary" className="bg-yellow-100 text-yellow-700">
-                    {metric}
-                  </Badge>
-                ))}
+                {thesisWithDefaults.keyMetrics?.length > 0 ? (
+                  thesisWithDefaults.keyMetrics.map((metric) => (
+                    <Badge key={metric} variant="secondary" className="bg-yellow-100 text-yellow-700">
+                      {metric}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No metrics selected</span>
+                )}
               </div>
             </div>
 
@@ -152,11 +181,15 @@ export function ThesisSettings({ open, onOpenChange, onReconfigure }) {
                 <h3 className="text-sm">Deal Breakers</h3>
               </div>
               <div className="flex flex-wrap gap-2">
-                {thesis.dealBreakers.map((breaker) => (
-                  <Badge key={breaker} variant="secondary" className="bg-red-100 text-red-700">
-                    {breaker}
-                  </Badge>
-                ))}
+                {thesisWithDefaults.dealBreakers?.length > 0 ? (
+                  thesisWithDefaults.dealBreakers.map((breaker) => (
+                    <Badge key={breaker} variant="secondary" className="bg-red-100 text-red-700">
+                      {breaker}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No deal breakers selected</span>
+                )}
               </div>
             </div>
           </div>

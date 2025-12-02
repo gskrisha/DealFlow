@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: dealflow_mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dealflow_admin
+      MONGO_INITDB_ROOT_PASSWORD: dealflow_secure_password_2025
+      MONGO_INITDB_DATABASE: dealflow
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+    networks:
+      - dealflow_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: dealflow_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_USER=dealflow_admin
+      - MONGODB_PASSWORD=dealflow_secure_password_2025
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - DATABASE_NAME=dealflow
+      - JWT_SECRET_KEY=your-super-secret-key-change-in-production
+      - DEBUG=True
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - dealflow_network
+    volumes:
+      - ./:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  mongodb_data:
+
+networks:
+  dealflow_network:
+    driver: bridge

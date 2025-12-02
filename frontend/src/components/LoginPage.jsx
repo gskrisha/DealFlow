@@ -5,7 +5,8 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card } from './ui/card';
 import { Separator } from './ui/separator';
-import { Sparkles, Mail, Lock, User, Database, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, Mail, Lock, User, Database, ArrowRight, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
 
 // SVG Logos for social providers
 const GoogleLogo = () => (
@@ -32,49 +33,90 @@ const LinkedInLogo = () => (
 
 /*
   LoginPage (updated)
-  - Fixed React usage and form state (consistent useState)
-  - Removed external sonner toast dependency to keep this file self-contained and runnable
-  - Kept social login stubs and localStorage storage logic
-  - Improved layout, accessibility, and visuals
+  - Integrated with AuthContext for real API authentication
+  - Falls back to localStorage if API is unavailable
+  - Improved error handling and loading states
 */
 
 export function LoginPage({ onLogin }) {
+  const { login, register } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({ name: '', email: '', password: '', fundName: '' });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+    
     // Basic validation
     if (!formData.email || !formData.password) {
-      // In production you might show a toast; here we simply return
+      setError('Please fill in all required fields');
       return;
     }
 
-    // Simulate authentication
-    const userData = {
-      name: formData.name || 'User',
-      email: formData.email,
-      fundName: formData.fundName || 'My Fund',
-    };
+    if (isSignUp && (!formData.name || !formData.fundName)) {
+      setError('Please fill in all required fields');
+      return;
+    }
 
-    // Store user data
-    localStorage.setItem('userData', JSON.stringify(userData));
-    localStorage.setItem('isAuthenticated', 'true');
+    setIsSubmitting(true);
 
-    if (onLogin) onLogin(userData);
+    try {
+      if (isSignUp) {
+        await register({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          fundName: formData.fundName,
+        });
+      } else {
+        await login(formData.email, formData.password);
+      }
+      
+      if (onLogin) onLogin();
+    } catch (err) {
+      console.error('Auth error:', err);
+      // If API fails, fall back to local storage for demo purposes
+      if (err.message?.includes('Failed to fetch') || err.message?.includes('Network')) {
+        console.warn('API unavailable, using local storage fallback');
+        const userData = {
+          name: formData.name || 'User',
+          email: formData.email,
+          fundName: formData.fundName || 'My Fund',
+        };
+        localStorage.setItem('userData', JSON.stringify(userData));
+        localStorage.setItem('isAuthenticated', 'true');
+        if (onLogin) onLogin();
+      } else {
+        setError(err.message || 'Authentication failed. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSocialLogin = (provider) => {
-    // Simulate a social login
-    const userData = {
-      name: 'Demo User',
-      email: 'demo@example.com',
-      fundName: 'Demo Ventures',
-    };
-    localStorage.setItem('userData', JSON.stringify(userData));
-    localStorage.setItem('isAuthenticated', 'true');
-    if (onLogin) onLogin(userData);
+  const handleSocialLogin = async (provider) => {
+    setError(null);
+    setIsSubmitting(true);
+    
+    try {
+      // For now, social login simulates a demo user
+      // In production, this would redirect to OAuth provider
+      const userData = {
+        name: 'Demo User',
+        email: 'demo@example.com',
+        fundName: 'Demo Ventures',
+      };
+      localStorage.setItem('userData', JSON.stringify(userData));
+      localStorage.setItem('isAuthenticated', 'true');
+      if (onLogin) onLogin();
+    } catch (err) {
+      setError(`${provider} login failed. Please try again.`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -220,14 +262,36 @@ export function LoginPage({ onLogin }) {
               </div>
             )}
 
+            {/* Error Message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </motion.div>
+            )}
+
             <motion.button
               type="submit"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all"
+              disabled={isSubmitting}
+              whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+              whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+              className="w-full bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isSignUp ? 'Create Account' : 'Sign In'}
-              <ArrowRight className="w-5 h-5" />
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {isSignUp ? 'Creating Account...' : 'Signing In...'}
+                </>
+              ) : (
+                <>
+                  {isSignUp ? 'Create Account' : 'Sign In'}
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
             </motion.button>
           </form>
 

@@ -11,27 +11,108 @@ import {
   Mail,
   CheckCircle2,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Loader2,
+  WifiOff,
+  Zap,
+  X,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
-import { mockStartups } from '../lib/mockData';
+import { useStartups, useStartupStats, usePipeline } from '../lib/hooks';
+import { useDiscovery } from '../lib/DiscoveryContext';
+import { useAuth } from '../lib/AuthContext';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Checkbox } from './ui/checkbox';
 
-export function OverviewDashboard() {
-  const topDeals = mockStartups.slice(0, 5);
+export function OverviewDashboard({ onNavigate }) {
+  const { user } = useAuth();
+  const { startups, isLoading: startupsLoading, useMock } = useStartups();
+  const { stats, isLoading: statsLoading } = useStartupStats();
+  const { pipeline, isLoading: pipelineLoading } = usePipeline();
+  const { discoveredStartups, startDiscovery, discoveryInProgress, jobProgress, jobError, passOnStartup, filtersMatched, appliedFilters } = useDiscovery();
+  
+  const [discoveryDialogOpen, setDiscoveryDialogOpen] = useState(false);
+  const [selectedSources, setSelectedSources] = useState(['yc']);
+  const [discoveryStarting, setDiscoveryStarting] = useState(false);
+  const [filterBannerDismissed, setFilterBannerDismissed] = useState(false);
 
-  const stats = [
-    { label: 'New Deals Today', value: '23', change: '+12%', trend: 'up', icon: Target },
-    { label: 'High Score (>90)', value: '8', change: '+3', trend: 'up', icon: Sparkles },
-    { label: 'Meetings Scheduled', value: '5', change: '+2', trend: 'up', icon: Users },
-    { label: 'Response Rate', value: '68%', change: '+5%', trend: 'up', icon: Mail }
+  // Use discovered startups if available, otherwise use regular startups
+  const displayStartups = discoveredStartups.length > 0 ? discoveredStartups : startups;
+  
+  // Get top 5 deals by score
+  const topDeals = [...displayStartups]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  // Calculate stats from data
+  const dashboardStats = [
+    { 
+      label: 'New Deals Today', 
+      value: displayStartups.filter(s => s.dealStatus === 'new').length.toString() || '0', 
+      change: '+12%', 
+      trend: 'up', 
+      icon: Target 
+    },
+    { 
+      label: 'High Score (>90)', 
+      value: displayStartups.filter(s => s.score >= 90).length.toString() || '0', 
+      change: '+3', 
+      trend: 'up', 
+      icon: Sparkles 
+    },
+    { 
+      label: 'Meetings Scheduled', 
+      value: displayStartups.filter(s => s.dealStatus === 'meeting').length.toString() || '0', 
+      change: '+2', 
+      trend: 'up', 
+      icon: Users 
+    },
+    { 
+      label: 'Response Rate', 
+      value: displayStartups.length > 0 ? Math.round((displayStartups.filter(s => s.dealStatus === 'contacted').length / displayStartups.length) * 100) + '%' : '0%', 
+      change: '+5%', 
+      trend: 'up', 
+      icon: Mail 
+    }
   ];
 
   const recentActivity = [
-    { type: 'discovery', title: 'Quantum Health AI', description: 'New high-score startup discovered', time: '2h ago', score: 94 },
-    { type: 'response', title: 'SupplyChain.ai replied', description: 'Founder interested in meeting next week', time: '4h ago' },
-    { type: 'meeting', title: 'ClimateCarbon meeting', description: 'First call scheduled for tomorrow 2pm', time: '6h ago' },
-    { type: 'signal', title: 'DevSecure momentum shift', description: 'GitHub stars +2K, featured on HN', time: '8h ago' }
+    { type: 'discovery', title: topDeals[0]?.name || 'Discovery Pending', description: 'New startup discovered', time: '2h ago', score: topDeals[0]?.score || null },
+    { type: 'response', title: 'Awaiting Responses', description: 'Outreach in progress', time: '4h ago' },
+    { type: 'meeting', title: 'Schedule Meeting', description: 'Ready for next steps', time: '6h ago' },
+    { type: 'signal', title: 'Market Activity', description: 'Monitor opportunities', time: '8h ago' }
   ];
+
+  // Calculate pipeline stages from data
+  const pipelineStages = [
+    { stage: 'New Discoveries', count: displayStartups.filter(s => s.dealStatus === 'new').length, total: 50, color: 'from-blue-500 to-blue-400' },
+    { stage: 'Contacted', count: displayStartups.filter(s => s.dealStatus === 'contacted').length, total: 50, color: 'from-purple-500 to-purple-400' },
+    { stage: 'Meetings Scheduled', count: displayStartups.filter(s => s.dealStatus === 'meeting').length, total: 50, color: 'from-green-500 to-green-400' },
+    { stage: 'Due Diligence', count: displayStartups.filter(s => s.dealStatus === 'diligence').length, total: 50, color: 'from-orange-500 to-orange-400' },
+    { stage: 'Term Sheet', count: displayStartups.filter(s => s.dealStatus === 'invested').length, total: 50, color: 'from-pink-500 to-pink-400' }
+  ];
+
+  const userName = user?.fullName || user?.name || JSON.parse(localStorage.getItem('userData') || '{}')?.name || 'John';
+
+  const handleRunDiscovery = async () => {
+    setDiscoveryStarting(true);
+    try {
+      await startDiscovery({
+        sources: selectedSources,
+      });
+      setDiscoveryDialogOpen(false);
+    } catch (error) {
+      console.error('Discovery error:', error);
+    } finally {
+      setDiscoveryStarting(false);
+    }
+  };
+
+  const isLoading = startupsLoading || statsLoading || discoveryInProgress;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 py-6">
@@ -44,18 +125,39 @@ export function OverviewDashboard() {
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-4xl font-semibold mb-1">Welcome back, John</h1>
-          <p className="text-slate-600">Here’s what’s happening with your deal flow today</p>
+          <h1 className="text-4xl font-semibold mb-1">Welcome back, {userName}</h1>
+          <p className="text-slate-600">
+            Here's what's happening with your deal flow today
+            {useMock && (
+              <Badge variant="outline" className="ml-2 text-xs bg-amber-50 border-amber-200 text-amber-700">
+                <WifiOff className="w-3 h-3 mr-1 inline" />
+                Demo Mode
+              </Badge>
+            )}
+          </p>
         </div>
-        <Button className="gap-2 shadow-md hover:shadow-lg transition">
-          <Sparkles className="w-4 h-4" />
-          Run AI Discovery
+        <Button 
+          className="gap-2 shadow-md hover:shadow-lg transition"
+          onClick={() => setDiscoveryDialogOpen(true)}
+          disabled={discoveryInProgress}
+        >
+          {discoveryInProgress ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Running...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              Run AI Discovery
+            </>
+          )}
         </Button>
       </motion.div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
+        {dashboardStats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <motion.div
@@ -92,6 +194,42 @@ export function OverviewDashboard() {
         })}
       </div>
 
+      {/* Filter Mismatch Banner */}
+      {filtersMatched === false && !filterBannerDismissed && discoveredStartups.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3"
+        >
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-amber-800 font-medium">No exact matches for your thesis filters</p>
+            <p className="text-amber-700 text-sm mt-1">
+              We couldn't find startups matching your 
+              {appliedFilters?.sectors?.length > 0 && (
+                <span className="font-medium"> Sector Focus ({appliedFilters.sectors.join(', ')})</span>
+              )}
+              {appliedFilters?.sectors?.length > 0 && appliedFilters?.stages?.length > 0 && ' or'}
+              {appliedFilters?.stages?.length > 0 && (
+                <span className="font-medium"> Investment Stages ({appliedFilters.stages.join(', ')})</span>
+              )}
+              . Showing all available startups instead.
+            </p>
+            <p className="text-amber-600 text-xs mt-2">
+              Tip: Update your thesis in Settings to broaden matching criteria, or explore these opportunities.
+            </p>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="shrink-0 hover:bg-amber-100"
+            onClick={() => setFilterBannerDismissed(true)}
+          >
+            <X className="w-4 h-4 text-amber-600" />
+          </Button>
+        </motion.div>
+      )}
+
       {/* Top 5 Startups */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -105,7 +243,12 @@ export function OverviewDashboard() {
                 <CardTitle>Top 5 Startups Today</CardTitle>
                 <CardDescription>Highest scoring deals that match your thesis</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" className="gap-2 hover:bg-slate-100">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-2 hover:bg-slate-100"
+                onClick={() => onNavigate && onNavigate('discovery')}
+              >
                 View All <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -113,7 +256,16 @@ export function OverviewDashboard() {
 
           <CardContent>
             <div className="space-y-4">
-              {topDeals.map((deal, index) => (
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                </div>
+              ) : topDeals.length === 0 ? (
+                <div className="text-center py-8 text-slate-500">
+                  No deals found. Run AI Discovery to get started.
+                </div>
+              ) : (
+              topDeals.map((deal, index) => (
                 <motion.div
                   key={deal.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -159,7 +311,8 @@ export function OverviewDashboard() {
                     </Button>
                   </div>
                 </motion.div>
-              ))}
+              ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -242,13 +395,12 @@ export function OverviewDashboard() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              {[ 
-                { stage: 'New Discoveries', count: 23, total: 50, color: 'from-blue-500 to-blue-400' },
-                { stage: 'Contacted', count: 12, total: 50, color: 'from-purple-500 to-purple-400' },
-                { stage: 'Meetings Scheduled', count: 5, total: 50, color: 'from-green-500 to-green-400' },
-                { stage: 'Due Diligence', count: 3, total: 50, color: 'from-orange-500 to-orange-400' },
-                { stage: 'Term Sheet', count: 1, total: 50, color: 'from-pink-500 to-pink-400' }
-              ].map((item) => (
+              {pipelineLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+                </div>
+              ) : (
+              pipelineStages.map((item) => (
                 <div key={item.stage}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm">{item.stage}</span>
@@ -264,7 +416,8 @@ export function OverviewDashboard() {
                     />
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -307,6 +460,102 @@ export function OverviewDashboard() {
         </motion.div>
 
       </div>
+
+      {/* Discovery Modal */}
+      <Dialog open={discoveryDialogOpen} onOpenChange={setDiscoveryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-500" />
+              AI Discovery Configuration
+            </DialogTitle>
+            <DialogDescription>
+              Select data sources and start discovering startups matching your thesis
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Data Sources */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Data Sources</label>
+              <div className="space-y-2">
+                {[
+                  { id: 'yc', label: 'Y Combinator', description: 'Latest funded startups' },
+                  { id: 'crunchbase', label: 'Crunchbase', description: 'Company data & funding' },
+                  { id: 'angellist', label: 'AngelList', description: 'Startup profiles' },
+                ].map(source => (
+                  <label key={source.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer">
+                    <Checkbox
+                      checked={selectedSources.includes(source.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedSources([...selectedSources, source.id]);
+                        } else {
+                          setSelectedSources(selectedSources.filter(s => s !== source.id));
+                        }
+                      }}
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{source.label}</div>
+                      <div className="text-xs text-slate-500">{source.description}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Discovery Progress */}
+            {discoveryInProgress && (
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Discovery in progress</span>
+                    <span className="text-sm text-slate-600">{jobProgress}%</span>
+                  </div>
+                  <Progress value={jobProgress} className="h-2" />
+                </div>
+                <p className="text-xs text-slate-500">
+                  Fetching and analyzing startups from selected sources...
+                </p>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {jobError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{jobError}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setDiscoveryDialogOpen(false)}
+              disabled={discoveryInProgress}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRunDiscovery}
+              disabled={discoveryInProgress || selectedSources.length === 0}
+              className="gap-2"
+            >
+              {discoveryInProgress ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Running Discovery...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4" />
+                  Start Discovery
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

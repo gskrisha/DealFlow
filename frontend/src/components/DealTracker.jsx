@@ -9,18 +9,27 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Eye
+  Eye,
+  Loader2,
+  WifiOff,
+  AlertCircle
 } from 'lucide-react';
-import { mockStartups } from '../lib/mockData';
+import { usePipeline, useStartups } from '../lib/hooks';
+import { useDiscovery } from '../lib/DiscoveryContext';
 import { motion } from 'framer-motion';
 
 export function DealTracker() {
-  const dealsByStage = {
-    new: mockStartups.filter(s => s.dealStatus === 'new'),
-    contacted: mockStartups.filter(s => s.dealStatus === 'contacted'),
-    meeting: mockStartups.filter(s => s.dealStatus === 'meeting'),
-    diligence: mockStartups.filter(s => s.dealStatus === 'diligence'),
-    passed: mockStartups.filter(s => s.dealStatus === 'passed')
+  const { pipeline, isLoading: pipelineLoading, refetch } = usePipeline();
+  const { startups, useMock } = useStartups();
+  const { discoveries } = useDiscovery();
+
+  // Create dealsByStage from pipeline data or fallback to startups
+  const dealsByStage = pipelineLoading ? {} : {
+    new: pipeline?.new || startups.filter(s => s.dealStatus === 'new'),
+    contacted: pipeline?.contacted || startups.filter(s => s.dealStatus === 'contacted'),
+    meeting: pipeline?.meeting || startups.filter(s => s.dealStatus === 'meeting'),
+    diligence: pipeline?.diligence || startups.filter(s => s.dealStatus === 'diligence'),
+    passed: pipeline?.passed || startups.filter(s => s.dealStatus === 'passed')
   };
 
   const stages = [
@@ -40,7 +49,15 @@ export function DealTracker() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-slate-600">Manage your entire deal pipeline in one place</p>
+          <p className="text-slate-600">
+            Manage your entire deal pipeline in one place
+            {useMock && (
+              <Badge variant="outline" className="ml-2 text-xs bg-amber-50 border-amber-200 text-amber-700">
+                <WifiOff className="w-3 h-3 mr-1 inline" />
+                Demo Mode
+              </Badge>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="hover:bg-slate-100">
@@ -52,6 +69,13 @@ export function DealTracker() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {pipelineLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+        </div>
+      ) : (
+      <>
       {/* Pipeline Overview */}
       <motion.div
         variants={container}
@@ -146,53 +170,40 @@ export function DealTracker() {
           <CardTitle className="text-lg">Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[
-              { startup: 'Quantum Health AI', action: 'Moved to New', user: 'AI Discovery', time: '2 hours ago', type: 'new' },
-              { startup: 'SupplyChain.ai', action: 'Moved to Contacted', user: 'John Doe', time: '5 hours ago', type: 'progress' },
-              { startup: 'ClimateCarbon', action: 'Meeting scheduled for tomorrow', user: 'John Doe', time: '6 hours ago', type: 'meeting' },
-              { startup: 'FinFlow', action: 'Started due diligence', user: 'Sarah Chen', time: '1 day ago', type: 'diligence' },
-              { startup: 'EduTech Pro', action: 'Marked as passed', user: 'John Doe', time: '2 days ago', type: 'passed' }
-            ].map((activity, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.32, delay: index * 0.04 }}
-                className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    activity.type === 'new'
-                      ? 'bg-blue-500'
-                      : activity.type === 'progress'
-                      ? 'bg-purple-500'
-                      : activity.type === 'meeting'
-                      ? 'bg-green-500'
-                      : activity.type === 'diligence'
-                      ? 'bg-orange-500'
-                      : 'bg-gray-400'
-                  }`}
-                />
+          {discoveries && discoveries.length > 0 ? (
+            <div className="space-y-4">
+              {discoveries.slice(0, 5).map((discovery, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.32, delay: index * 0.04 }}
+                  className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition"
+                >
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
 
-                <div className="flex-1">
-                  <p className="text-sm">
-                    <span className="font-medium">{activity.startup}</span> – {activity.action}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {activity.user} · {activity.time}
-                  </p>
-                </div>
+                  <div className="flex-1">
+                    <p className="text-sm">
+                      <strong>{discovery.name}</strong> discovered by AI
+                    </p>
+                    <p className="text-xs text-slate-500">Score: {discovery.score}/100</p>
+                  </div>
 
-                <Button variant="ghost" size="icon">
-                  <ChevronRight className="w-4 h-4 text-slate-500" />
-                </Button>
-              </motion.div>
-            ))}
-          </div>
+                  <span className="text-xs text-slate-500">Just now</span>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+              <AlertCircle className="w-8 h-8 mb-2" />
+              <p className="text-sm">No activity yet</p>
+              <p className="text-xs mt-1">Run AI Discovery to see recent activity</p>
+            </div>
+          )}
         </CardContent>
       </Card>
-
+      </>
+      )}
     </div>
   );
 }
